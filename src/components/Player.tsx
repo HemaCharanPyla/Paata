@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Repeat, Shuffle, Volume2, Maximize2 } from 'lucide-react';
 import { Track } from '../types';
 import { cn } from '../lib/utils';
+import { motion } from 'motion/react';
 
 interface PlayerProps {
   currentTrack: Track | null;
@@ -63,7 +64,7 @@ export const Player: React.FC<PlayerProps> = ({
   if (!currentTrack) return null;
 
   return (
-    <div className="h-28 bg-white border-t-4 border-black px-8 flex items-center justify-between">
+    <div className="h-24 bg-neo-pink border-t-4 border-black px-6 flex items-center justify-between neo-shadow-[0_-4px_0_0_#000]">
       <audio
         ref={audioRef}
         src={currentTrack.previewUrl}
@@ -72,55 +73,55 @@ export const Player: React.FC<PlayerProps> = ({
       />
 
       {/* Track Info */}
-      <div className="flex items-center gap-6 w-[30%]">
+      <div className="flex items-center gap-4 w-[30%]">
         <img
           src={currentTrack.cover}
           alt={currentTrack.title}
-          className="w-16 h-16 neo-border neo-shadow"
+          className="w-16 h-16 neo-border neo-shadow-sm"
           referrerPolicy="no-referrer"
         />
         <div className="flex flex-col overflow-hidden">
-          <span className="text-black text-lg font-black uppercase tracking-tighter truncate hover:underline cursor-pointer">
+          <span className="text-black text-lg font-display uppercase truncate tracking-tighter hover:underline cursor-pointer">
             {currentTrack.title}
           </span>
-          <span className="text-black/60 text-sm font-bold italic truncate hover:underline cursor-pointer">
+          <span className="text-black/70 text-sm font-bold uppercase truncate tracking-wider hover:underline cursor-pointer">
             {currentTrack.artist}
           </span>
         </div>
       </div>
 
       {/* Controls */}
-      <div className="flex flex-col items-center gap-3 max-w-[40%] w-full">
-        <div className="flex items-center gap-8">
-          <button className="text-black hover:text-neo-pink transition-colors">
-            <Shuffle size={20} strokeWidth={3} />
+      <div className="flex flex-col items-center gap-2 max-w-[40%] w-full">
+        <div className="flex items-center gap-6">
+          <button className="text-black hover:text-white transition-colors">
+            <Shuffle size={20} />
           </button>
-          <button onClick={onPrev} className="text-black hover:text-neo-blue transition-colors">
-            <SkipBack size={28} fill="currentColor" strokeWidth={3} />
+          <button onClick={onPrev} className="text-black hover:text-white transition-colors">
+            <SkipBack size={28} fill="currentColor" />
           </button>
           <button
             onClick={onTogglePlay}
-            className="w-12 h-12 bg-neo-yellow neo-border neo-shadow-hover flex items-center justify-center"
+            className="w-12 h-12 bg-neo-green neo-border neo-shadow-sm flex items-center justify-center hover:-translate-y-0.5 active:translate-y-0 active:shadow-none transition-all"
           >
             {isPlaying ? (
-              <Pause size={24} fill="black" strokeWidth={3} className="text-black" />
+              <Pause size={24} fill="black" className="text-black" />
             ) : (
-              <Play size={24} fill="black" strokeWidth={3} className="text-black ml-1" />
+              <Play size={24} fill="black" className="text-black ml-1" />
             )}
           </button>
-          <button onClick={onNext} className="text-black hover:text-neo-blue transition-colors">
-            <SkipForward size={28} fill="currentColor" strokeWidth={3} />
+          <button onClick={onNext} className="text-black hover:text-white transition-colors">
+            <SkipForward size={28} fill="currentColor" />
           </button>
-          <button className="text-black hover:text-neo-pink transition-colors">
-            <Repeat size={20} strokeWidth={3} />
+          <button className="text-black hover:text-white transition-colors">
+            <Repeat size={20} />
           </button>
         </div>
 
         <div className="flex items-center gap-4 w-full">
-          <span className="text-xs font-black uppercase tracking-tighter min-w-[40px] text-right">
+          <span className="text-xs font-bold text-black min-w-[40px] text-right">
             {formatTime(progress)}
           </span>
-          <div className="flex-1 relative h-4 neo-border bg-black/10 overflow-hidden">
+          <div className="flex-1 relative h-4 neo-border bg-white neo-shadow-sm overflow-hidden">
             <input
               type="range"
               min={0}
@@ -129,12 +130,14 @@ export const Player: React.FC<PlayerProps> = ({
               onChange={handleProgressChange}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
             />
-            <div 
-              className="absolute inset-y-0 left-0 bg-neo-green border-r-4 border-black transition-all"
-              style={{ width: `${(progress / (duration || 1)) * 100}%` }}
+            <motion.div 
+              className="absolute inset-y-0 left-0 bg-neo-yellow border-r-4 border-black"
+              initial={false}
+              animate={{ width: `${(progress / (duration || 1)) * 100}%` }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
             />
           </div>
-          <span className="text-xs font-black uppercase tracking-tighter min-w-[40px]">
+          <span className="text-xs font-bold text-black min-w-[40px]">
             {formatTime(duration)}
           </span>
         </div>
@@ -142,8 +145,8 @@ export const Player: React.FC<PlayerProps> = ({
 
       {/* Volume & Extra */}
       <div className="flex items-center justify-end gap-4 w-[30%]">
-        <Volume2 size={24} strokeWidth={3} className="text-black" />
-        <div className="w-32 relative h-4 neo-border bg-black/10 overflow-hidden">
+        <Volume2 size={20} className="text-black" />
+        <div className="w-32 relative h-4 neo-border bg-white neo-shadow-sm overflow-hidden">
           <input
             type="range"
             min={0}
@@ -153,12 +156,14 @@ export const Player: React.FC<PlayerProps> = ({
             onChange={(e) => setVolume(parseFloat(e.target.value))}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
           />
-          <div 
-            className="absolute inset-y-0 left-0 bg-neo-pink border-r-4 border-black transition-all"
-            style={{ width: `${volume * 100}%` }}
+          <motion.div 
+            className="absolute inset-y-0 left-0 bg-neo-blue border-r-4 border-black"
+            initial={false}
+            animate={{ width: `${volume * 100}%` }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
           />
         </div>
-        <Maximize2 size={24} strokeWidth={3} className="text-black hover:text-neo-orange cursor-pointer" />
+        <Maximize2 size={20} className="text-black" />
       </div>
     </div>
   );

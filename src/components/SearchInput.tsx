@@ -10,22 +10,22 @@ interface SearchInputProps {
 export const SearchInput: React.FC<SearchInputProps> = ({ value, onChange, onClear }) => {
   return (
     <div className="relative w-full max-w-md">
-      <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-        <Search size={24} strokeWidth={3} className="text-black" />
+      <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+        <Search size={20} className="text-black" />
       </div>
       <input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="SEARCH MUSIC..."
-        className="w-full bg-white text-black text-lg font-black uppercase tracking-tighter neo-border neo-shadow py-3 pl-12 pr-12 focus:outline-none placeholder:text-black/30"
+        placeholder="WHAT'S THE VIBE?"
+        className="w-full bg-white text-black text-sm neo-border neo-shadow-sm py-3 pl-10 pr-10 focus:outline-none placeholder:text-black/40 font-bold uppercase tracking-wider"
       />
       {value && (
         <button
           onClick={onClear}
-          className="absolute inset-y-0 right-4 flex items-center text-black hover:text-neo-pink"
+          className="absolute inset-y-0 right-3 flex items-center text-black hover:text-neo-pink transition-colors"
         >
-          <X size={24} strokeWidth={3} />
+          <X size={20} />
         </button>
       )}
     </div>
