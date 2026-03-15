@@ -15,52 +15,51 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
   ];
 
   return (
-    <div className="w-64 bg-neutral-100 dark:bg-black h-full flex flex-col p-6 gap-8 transition-colors duration-300">
-      <div className="flex items-center gap-2 px-2">
-        <div className="w-8 h-8 bg-neutral-900 dark:bg-white rounded-full flex items-center justify-center">
-          <div className="w-4 h-4 bg-white dark:bg-black rounded-sm rotate-45" />
+    <div className="w-72 bg-white h-full flex flex-col p-8 gap-10 border-r-4 border-black">
+      <div className="flex items-center gap-3 px-2">
+        <div className="w-12 h-12 bg-neo-yellow neo-border neo-shadow flex items-center justify-center">
+          <div className="w-6 h-6 bg-black rotate-45" />
         </div>
-        <span className="text-neutral-900 dark:text-white font-bold text-xl tracking-tight">Spotify</span>
+        <span className="text-black font-black text-3xl tracking-tighter uppercase italic">AURA</span>
       </div>
 
-      <nav className="flex flex-col gap-4">
+      <nav className="flex flex-col gap-6">
         {navItems.map((item) => (
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
             className={cn(
-              "flex items-center gap-4 text-sm font-bold transition-colors hover:text-neutral-900 dark:hover:text-white",
-              activeTab === item.id ? "text-neutral-900 dark:text-white" : "text-neutral-500 dark:text-neutral-400"
+              "flex items-center gap-4 text-xl font-black uppercase tracking-tighter transition-all p-2 neo-border neo-shadow-hover",
+              activeTab === item.id ? "bg-neo-green text-black" : "bg-white text-black/40"
             )}
           >
-            <item.icon size={24} />
+            <item.icon size={28} strokeWidth={3} />
             {item.label}
           </button>
         ))}
       </nav>
 
-      <div className="flex flex-col gap-4 mt-4">
-        <button className="flex items-center gap-4 text-sm font-bold text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">
-          <div className="bg-neutral-300 dark:bg-neutral-400 p-1 rounded-sm text-neutral-900 dark:text-black">
-            <PlusSquare size={16} />
+      <div className="flex flex-col gap-6 mt-6">
+        <button className="flex items-center gap-4 text-lg font-black uppercase tracking-tighter text-black hover:bg-neo-pink p-2 neo-border neo-shadow-hover transition-colors">
+          <div className="bg-black p-1 text-white">
+            <PlusSquare size={20} strokeWidth={3} />
           </div>
-          Create Playlist
+          Playlist
         </button>
-        <button className="flex items-center gap-4 text-sm font-bold text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">
-          <div className="bg-gradient-to-br from-indigo-700 to-blue-300 p-1 rounded-sm text-white">
-            <Heart size={16} fill="white" />
+        <button className="flex items-center gap-4 text-lg font-black uppercase tracking-tighter text-black hover:bg-neo-blue hover:text-white p-2 neo-border neo-shadow-hover transition-colors">
+          <div className="bg-neo-pink p-1 text-black">
+            <Heart size={20} strokeWidth={3} fill="currentColor" />
           </div>
-          Liked Songs
+          Liked
         </button>
       </div>
 
-      <div className="mt-auto pt-4 border-t border-neutral-200 dark:border-neutral-800">
-        <div className="text-[11px] text-neutral-500 dark:text-neutral-400 flex flex-wrap gap-x-4 gap-y-2">
-          <span>Legal</span>
-          <span>Privacy Center</span>
-          <span>Privacy Policy</span>
-          <span>Cookies</span>
-          <span>About Ads</span>
+      <div className="mt-auto pt-6 border-t-4 border-black">
+        <div className="text-[12px] font-bold uppercase tracking-tight text-black flex flex-wrap gap-x-4 gap-y-2">
+          <span className="hover:underline cursor-pointer">Legal</span>
+          <span className="hover:underline cursor-pointer">Privacy</span>
+          <span className="hover:underline cursor-pointer">Cookies</span>
+          <span className="hover:underline cursor-pointer">About</span>
         </div>
       </div>
     </div>

@@ -3,7 +3,6 @@ import { Sidebar } from './components/Sidebar';
 import { Player } from './components/Player';
 import { TrackCard } from './components/TrackCard';
 import { SearchInput } from './components/SearchInput';
-import { ThemeToggle } from './components/ThemeToggle';
 import { Track } from './types';
 import { searchTracks, getTrendingTracks } from './services/musicService';
 import { ChevronLeft, ChevronRight, User } from 'lucide-react';
@@ -72,22 +71,22 @@ export default function App() {
   }, [currentTrack, tracks]);
 
   return (
-    <div className="flex flex-col h-screen bg-neutral-50 text-neutral-900 dark:bg-black dark:text-white font-sans overflow-hidden transition-colors duration-300">
+    <div className="flex flex-col h-screen bg-[#F0F0F0] text-black font-sans overflow-hidden">
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
         {/* Main Content */}
-        <main className="flex-1 flex flex-col bg-gradient-to-b from-neutral-100 to-neutral-50 dark:from-neutral-900 dark:to-black overflow-y-auto scrollbar-hide transition-colors duration-300">
+        <main className="flex-1 flex flex-col bg-white overflow-y-auto scrollbar-hide border-l-4 border-black">
           {/* Header */}
-          <header className="sticky top-0 z-10 flex items-center justify-between p-4 bg-transparent backdrop-blur-md">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <button className="w-8 h-8 bg-black/5 dark:bg-black/40 rounded-full flex items-center justify-center text-neutral-600 dark:text-white/60 hover:text-neutral-900 dark:hover:text-white transition-colors">
-                  <ChevronLeft size={24} />
+          <header className="sticky top-0 z-10 flex items-center justify-between p-6 bg-neo-yellow border-b-4 border-black">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-3">
+                <button className="w-10 h-10 bg-white neo-border neo-shadow-hover flex items-center justify-center text-black">
+                  <ChevronLeft size={24} strokeWidth={3} />
                 </button>
-                <button className="w-8 h-8 bg-black/5 dark:bg-black/40 rounded-full flex items-center justify-center text-neutral-600 dark:text-white/60 hover:text-neutral-900 dark:hover:text-white transition-colors">
-                  <ChevronRight size={24} />
+                <button className="w-10 h-10 bg-white neo-border neo-shadow-hover flex items-center justify-center text-black">
+                  <ChevronRight size={24} strokeWidth={3} />
                 </button>
               </div>
               {activeTab === 'search' && (
@@ -99,12 +98,11 @@ export default function App() {
               )}
             </div>
             <div className="flex items-center gap-4">
-              <ThemeToggle />
-              <button className="hidden md:block bg-neutral-900 text-white dark:bg-white dark:text-black text-sm font-bold px-4 py-2 rounded-full hover:scale-105 transition-transform">
-                Explore Premium
+              <button className="hidden md:block bg-neo-pink text-black text-sm font-black px-6 py-2 neo-border neo-shadow-hover uppercase tracking-tighter">
+                Premium
               </button>
-              <button className="w-8 h-8 bg-black/5 dark:bg-black/40 rounded-full flex items-center justify-center text-neutral-900 dark:text-white hover:bg-black/10 dark:hover:bg-black/60 transition-colors">
-                <User size={20} />
+              <button className="w-10 h-10 bg-neo-green neo-border neo-shadow-hover flex items-center justify-center text-black">
+                <User size={24} strokeWidth={3} />
               </button>
             </div>
           </header>
@@ -114,37 +112,36 @@ export default function App() {
               {activeTab === 'home' && (
                 <motion.section
                   key="home"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="flex flex-col gap-6"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="flex flex-col gap-8"
                 >
-                  <h1 className="text-3xl font-bold tracking-tight">Good afternoon</h1>
+                  <h1 className="text-6xl font-black uppercase tracking-tighter italic">AURA TRENDS</h1>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {trendingTracks.slice(0, 6).map((track) => (
                       <div
                         key={track.id}
                         onClick={() => handlePlay(track)}
-                        className="flex items-center gap-4 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors rounded overflow-hidden cursor-pointer group"
+                        className="flex items-center gap-4 bg-neo-blue/10 neo-border neo-shadow-hover p-2 cursor-pointer group"
                       >
-                        <img src={track.cover} alt={track.title} className="w-20 h-20 shadow-lg" referrerPolicy="no-referrer" />
-                        <span className="font-bold text-sm truncate">{track.title}</span>
-                        <div className="ml-auto mr-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <div className="w-10 h-10 bg-[#1DB954] rounded-full flex items-center justify-center shadow-xl">
-                            <div className="w-0 h-0 border-t-[6px] border-t-transparent border-l-[10px] border-l-black border-b-[6px] border-b-transparent ml-1" />
+                        <img src={track.cover} alt={track.title} className="w-20 h-20 neo-border" referrerPolicy="no-referrer" />
+                        <span className="font-black text-lg uppercase tracking-tight truncate">{track.title}</span>
+                        <div className="ml-auto mr-4">
+                          <div className="w-12 h-12 bg-neo-green neo-border flex items-center justify-center">
+                            <div className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[14px] border-l-black border-b-[8px] border-b-transparent ml-1" />
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  <div className="mt-8">
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-2xl font-bold hover:underline cursor-pointer">Made For You</h2>
-                      <span className="text-sm font-bold text-neutral-500 dark:text-neutral-400 hover:underline cursor-pointer">Show all</span>
+                  <div className="mt-12">
+                    <div className="flex items-center justify-between mb-8">
+                      <h2 className="text-4xl font-black uppercase tracking-tighter bg-neo-pink px-4 py-1 neo-border neo-shadow">Made For You</h2>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-8">
                       {trendingTracks.map((track) => (
                         <TrackCard
                           key={track.id}
@@ -161,32 +158,32 @@ export default function App() {
               {activeTab === 'search' && (
                 <motion.section
                   key="search"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="flex flex-col gap-6"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1.05 }}
+                  className="flex flex-col gap-8"
                 >
                   {!searchQuery ? (
                     <>
-                      <h2 className="text-2xl font-bold">Browse all</h2>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                        {['Podcasts', 'Made For You', 'Charts', 'Live Events', 'Pop', 'Hip-Hop', 'Rock', 'Latin', 'Dance', 'Indie'].map((cat, i) => (
+                      <h2 className="text-4xl font-black uppercase tracking-tighter">Browse all</h2>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                        {['Podcasts', 'Charts', 'Live', 'Pop', 'Hip-Hop', 'Rock', 'Latin', 'Dance', 'Indie', 'Jazz', 'Metal', 'Soul'].map((cat, i) => (
                           <div
                             key={cat}
-                            className="aspect-square rounded-lg p-4 relative overflow-hidden cursor-pointer hover:scale-[1.02] transition-transform"
-                            style={{ backgroundColor: `hsl(${i * 40}, 70%, 40%)` }}
+                            className="aspect-square neo-border neo-shadow-hover p-4 relative overflow-hidden cursor-pointer"
+                            style={{ backgroundColor: `hsl(${i * 30}, 90%, 60%)` }}
                           >
-                            <span className="text-2xl font-bold tracking-tighter">{cat}</span>
-                            <div className="absolute -bottom-2 -right-4 w-24 h-24 bg-white/20 rotate-12 rounded shadow-xl" />
+                            <span className="text-2xl font-black uppercase tracking-tighter leading-none">{cat}</span>
+                            <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-black/20 rotate-12 neo-border" />
                           </div>
                         ))}
                       </div>
                     </>
                   ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-8">
                       {isLoading ? (
                         <div className="col-span-full flex justify-center py-20">
-                          <div className="w-10 h-10 border-4 border-[#1DB954] border-t-transparent rounded-full animate-spin" />
+                          <div className="w-16 h-16 border-8 border-neo-yellow border-t-black rounded-full animate-spin" />
                         </div>
                       ) : tracks.length > 0 ? (
                         tracks.map((track) => (
@@ -198,8 +195,8 @@ export default function App() {
                           />
                         ))
                       ) : (
-                        <div className="col-span-full text-center py-20 text-neutral-400">
-                          No results found for "{searchQuery}"
+                        <div className="col-span-full text-center py-20 font-black text-2xl uppercase italic">
+                          No results for "{searchQuery}"
                         </div>
                       )}
                     </div>
@@ -213,18 +210,18 @@ export default function App() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
-                  className="flex flex-col items-center justify-center h-[60vh] gap-4"
+                  className="flex flex-col items-center justify-center h-[60vh] gap-6"
                 >
-                  <div className="w-16 h-16 bg-neutral-200 dark:bg-neutral-800 rounded-full flex items-center justify-center">
-                    <User size={32} className="text-neutral-500 dark:text-neutral-400" />
+                  <div className="w-24 h-24 bg-neo-orange neo-border neo-shadow flex items-center justify-center">
+                    <User size={48} strokeWidth={3} className="text-black" />
                   </div>
-                  <h2 className="text-2xl font-bold">Your Library is empty</h2>
-                  <p className="text-neutral-500 dark:text-neutral-400">Follow artists and podcasts to see them here.</p>
+                  <h2 className="text-4xl font-black uppercase tracking-tighter">Empty Library</h2>
+                  <p className="text-xl font-bold italic">Follow artists to see them here.</p>
                   <button
                     onClick={() => setActiveTab('search')}
-                    className="bg-neutral-900 text-white dark:bg-white dark:text-black font-bold px-8 py-3 rounded-full hover:scale-105 transition-transform"
+                    className="bg-neo-yellow text-black font-black px-10 py-4 neo-border neo-shadow-hover uppercase tracking-tighter text-xl"
                   >
-                    Find something to listen to
+                    Find Music
                   </button>
                 </motion.section>
               )}

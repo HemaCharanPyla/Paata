@@ -14,29 +14,29 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, isActive, onPlay })
     <div
       onClick={() => onPlay(track)}
       className={cn(
-        "group p-4 rounded-lg bg-neutral-200/50 dark:bg-[#181818] hover:bg-neutral-300/50 dark:hover:bg-[#282828] transition-all duration-300 cursor-pointer relative",
-        isActive && "bg-neutral-300/50 dark:bg-[#282828]"
+        "group p-4 bg-white neo-border neo-shadow-hover cursor-pointer relative",
+        isActive && "bg-neo-yellow"
       )}
     >
-      <div className="relative aspect-square mb-4 shadow-2xl">
+      <div className="relative aspect-square mb-4 neo-border overflow-hidden">
         <img
           src={track.cover}
           alt={track.title}
-          className="w-full h-full object-cover rounded-md"
+          className="w-full h-full object-cover"
           referrerPolicy="no-referrer"
         />
         <button
           className={cn(
-            "absolute bottom-2 right-2 w-12 h-12 bg-[#1DB954] rounded-full flex items-center justify-center shadow-xl transform translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 hover:scale-105",
+            "absolute bottom-2 right-2 w-12 h-12 bg-neo-green neo-border flex items-center justify-center neo-shadow transform translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300",
             isActive && "translate-y-0 opacity-100"
           )}
         >
-          <Play size={24} fill="black" className="text-black ml-1" />
+          <Play size={24} fill="black" strokeWidth={3} className="text-black ml-1" />
         </button>
       </div>
       <div className="flex flex-col gap-1">
-        <h3 className="text-neutral-900 dark:text-white font-bold text-sm truncate">{track.title}</h3>
-        <p className="text-neutral-500 dark:text-neutral-400 text-xs truncate">{track.artist}</p>
+        <h3 className="text-black font-black text-lg uppercase tracking-tighter truncate leading-none">{track.title}</h3>
+        <p className="text-black/60 font-bold italic text-sm truncate">{track.artist}</p>
       </div>
     </div>
   );
