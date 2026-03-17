@@ -6,6 +6,8 @@ import { SearchInput } from './components/SearchInput';
 import { Track, Playlist } from './types';
 import { cn } from './lib/utils';
 import { searchTracks, getTrendingTracks } from './services/musicService';
+import { fetchLyrics } from './services/lyricsService';
+import { LyricsModal } from './components/LyricsModal';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -36,6 +38,9 @@ export default function App() {
   });
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [isLyricsOpen, setIsLyricsOpen] = useState(false);
+  const [isLyricsLoading, setIsLyricsLoading] = useState(false);
+  const [currentLyrics, setCurrentLyrics] = useState('');
 
   // Save playlists to localStorage
   useEffect(() => {
@@ -105,6 +110,15 @@ export default function App() {
     setCurrentTrack(tracks[prevIndex]);
   }, [currentTrack, tracks]);
 
+  const handleShowLyrics = async () => {
+    if (!currentTrack) return;
+    setIsLyricsOpen(true);
+    setIsLyricsLoading(true);
+    const lyrics = await fetchLyrics(currentTrack.title, currentTrack.artist);
+    setCurrentLyrics(lyrics);
+    setIsLyricsLoading(false);
+  };
+
   const createPlaylist = () => {
     const newPlaylist: Playlist = {
       id: Date.now().toString(),
@@ -165,7 +179,7 @@ export default function App() {
         </div>
 
         {/* Main Content */}
-        <main className="flex-1 flex flex-col bg-white overflow-y-auto scrollbar-hide border-l-0 md:border-l-4 border-black pb-40 md:pb-24">
+        <main className="flex-1 flex flex-col bg-white overflow-y-auto scrollbar-hide border-l-0 md:border-l-4 border-black pb-48 md:pb-24">
           {/* Header */}
           <header className="sticky top-0 z-30 flex items-center justify-between p-4 bg-white border-b-4 border-black">
             <div className="flex items-center gap-2 md:gap-4 flex-1">
@@ -427,8 +441,19 @@ export default function App() {
           onTogglePlay={() => setIsPlaying(!isPlaying)}
           onNext={handleNext}
           onPrev={handlePrev}
+          onShowLyrics={handleShowLyrics}
         />
       </div>
+
+      {/* Lyrics Modal */}
+      <LyricsModal
+        isOpen={isLyricsOpen}
+        onClose={() => setIsLyricsOpen(false)}
+        title={currentTrack?.title || ''}
+        artist={currentTrack?.artist || ''}
+        lyrics={currentLyrics}
+        isLoading={isLyricsLoading}
+      />
 
       {/* Mobile Bottom Nav */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-neo-yellow border-t-4 border-black flex items-center justify-around z-50">

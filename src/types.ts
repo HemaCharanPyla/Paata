@@ -6,6 +6,7 @@ export interface Track {
   cover: string;
   previewUrl: string;
   duration: number;
+  lyrics?: string;
 }
 
 export interface Playlist {
