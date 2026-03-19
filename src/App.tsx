@@ -4,12 +4,11 @@ import { Player } from './components/Player';
 import { TrackCard } from './components/TrackCard';
 import { SearchInput } from './components/SearchInput';
 import { SplashScreen } from './components/SplashScreen';
-import { Track, Playlist } from './types';
+import { Track, Playlist, QuickUser } from './types';
 import { cn } from './lib/utils';
 import { searchTracks, getTrendingTracks } from './services/musicService';
-import { auth, db, googleProvider } from './firebase';
-import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { doc, setDoc, onSnapshot, collection } from 'firebase/firestore';
+import { db } from './firebase';
+import { doc, setDoc, onSnapshot, collection, getDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from './lib/firestoreUtils';
 import { 
   ChevronLeft, 
@@ -45,8 +44,13 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isQueueOpen, setIsQueueOpen] = useState(false);
   
-  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [user, setUser] = useState<QuickUser | null>(() => {
+    const saved = localStorage.getItem('aura_quick_user');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginUsername, setLoginUsername] = useState('');
   const [history, setHistory] = useState<Track[]>([]);
   const [lastSearch, setLastSearch] = useState<string>(() => localStorage.getItem('aura_last_search') || '');
   const [searchBasedTracks, setSearchBasedTracks] = useState<Track[]>([]);
@@ -58,22 +62,19 @@ export default function App() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Auth listener
+  // Auth listener removed in favor of local state
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      if (!u) {
-        // Clear playlists if logged out (or keep local if you prefer)
-        // For now, we'll let Firestore override if logged in
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+    if (user) {
+      localStorage.setItem('aura_quick_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('aura_quick_user');
+    }
+  }, [user]);
 
   // Firestore sync for playlists
   useEffect(() => {
     if (!user) return;
-    const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
+    const unsubscribe = onSnapshot(doc(db, 'users', user.id), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         if (data.playlists) {
@@ -81,7 +82,7 @@ export default function App() {
         }
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
+      handleFirestoreError(error, OperationType.GET, `users/${user.id}`);
     });
     return () => unsubscribe();
   }, [user]);
@@ -91,9 +92,9 @@ export default function App() {
     const savePlaylists = async () => {
       if (user) {
         try {
-          await setDoc(doc(db, 'users', user.uid), { playlists }, { merge: true });
+          await setDoc(doc(db, 'users', user.id), { playlists }, { merge: true });
         } catch (error) {
-          handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}`);
+          handleFirestoreError(error, OperationType.WRITE, `users/${user.id}`);
         }
       } else {
         localStorage.setItem('aura_playlists', JSON.stringify(playlists));
@@ -207,32 +208,40 @@ export default function App() {
     setCurrentTrack(tracks[prevIndex]);
   }, [currentTrack, tracks]);
 
-  const handleLogin = async () => {
-    if (isLoggingIn) return;
+  const handleLogin = () => {
+    setShowLoginModal(true);
+  };
+
+  const submitLogin = async () => {
+    if (!loginUsername.trim()) return;
     setIsLoggingIn(true);
+    const id = loginUsername.trim().toLowerCase();
+    const newUser: QuickUser = {
+      id,
+      name: loginUsername.trim()
+    };
+    
+    // Try to fetch existing data to see if user exists
     try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (error: any) {
-      if (error.code === 'auth/cancelled-popup-request') {
-        console.log("Login popup request was cancelled by a subsequent request.");
-      } else if (error.code === 'auth/popup-closed-by-user') {
-        console.log("Login popup was closed by the user.");
-      } else {
-        console.error("Login failed:", error);
+      const docSnap = await getDoc(doc(db, 'users', id));
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.playlists) setPlaylists(data.playlists);
       }
+      setUser(newUser);
+      setShowLoginModal(false);
+      setLoginUsername('');
+    } catch (error) {
+      console.error("Quick login failed:", error);
     } finally {
       setIsLoggingIn(false);
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      setPlaylists([]);
-      setSelectedPlaylistId(null);
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
+  const handleLogout = () => {
+    setUser(null);
+    setPlaylists([]);
+    setSelectedPlaylistId(null);
   };
 
   const createPlaylist = () => {
@@ -755,6 +764,62 @@ export default function App() {
           <span className="text-[10px] font-bold">NEW</span>
         </button>
       </div>
+
+      {/* Quick Login Modal */}
+      <AnimatePresence>
+        {showLoginModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowLoginModal(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.9, y: 20, opacity: 0 }}
+              className="relative w-full max-w-md bg-neo-yellow neo-border neo-shadow-lg p-8 flex flex-col gap-6"
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="text-4xl font-display uppercase tracking-tighter bg-neo-pink px-4 py-1 neo-border neo-shadow">QUICK LOGIN</h2>
+                <button 
+                  onClick={() => setShowLoginModal(false)}
+                  className="w-10 h-10 bg-white neo-border neo-shadow-sm flex items-center justify-center hover:bg-neo-pink transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+              
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-bold uppercase tracking-widest">ENTER USERNAME</label>
+                <input 
+                  type="text" 
+                  value={loginUsername}
+                  onChange={(e) => setLoginUsername(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && submitLogin()}
+                  placeholder="e.g. vibe_master"
+                  className="w-full p-4 text-xl font-bold uppercase tracking-tight neo-border bg-white outline-none focus:ring-4 focus:ring-neo-green/30"
+                  autoFocus
+                />
+                <p className="text-xs font-bold uppercase text-black/60">No password required. Just a name to save your playlists.</p>
+              </div>
+
+              <button 
+                onClick={submitLogin}
+                disabled={isLoggingIn || !loginUsername.trim()}
+                className={cn(
+                  "w-full py-4 bg-neo-green text-2xl font-display uppercase tracking-tighter neo-border neo-shadow transition-all",
+                  (isLoggingIn || !loginUsername.trim()) ? "opacity-50 cursor-not-allowed" : "hover:-translate-y-1 active:translate-y-0"
+                )}
+              >
+                {isLoggingIn ? 'SYNCING...' : 'START VIBING'}
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

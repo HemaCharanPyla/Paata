@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Home, Search, Library, PlusSquare, Heart, Music, LogIn, LogOut, Play } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { Playlist } from '../types';
-import { User as FirebaseUser } from 'firebase/auth';
+import { Playlist, QuickUser } from '../types';
 import { motion } from 'motion/react';
 
 interface SidebarProps {
@@ -14,7 +13,7 @@ interface SidebarProps {
   onCreatePlaylist: () => void;
   onRenamePlaylist: (id: string, newName: string) => void;
   onPlayPlaylist: (playlist: Playlist) => void;
-  user: FirebaseUser | null;
+  user: QuickUser | null;
   isLoggingIn: boolean;
   onLogin: () => void;
   onLogout: () => void;
@@ -169,13 +168,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-3 px-2">
               <img 
-                src={user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} 
-                className="w-10 h-10 neo-border" 
-                alt={user.displayName || 'User'} 
+                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`} 
+                className="w-10 h-10 neo-border bg-white" 
+                alt={user.name} 
               />
               <div className="flex flex-col overflow-hidden">
-                <span className="text-xs font-bold uppercase truncate">{user.displayName || 'User'}</span>
-                <span className="text-[10px] text-black/60 truncate">{user.email}</span>
+                <span className="text-xs font-bold uppercase truncate">{user.name}</span>
+                <span className="text-[10px] text-black/60 truncate">@{user.id}</span>
               </div>
             </div>
             <button 
@@ -196,7 +195,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
           >
             <LogIn size={16} className={cn(isLoggingIn && "animate-pulse")} />
-            {isLoggingIn ? 'Logging in...' : 'Login with Google'}
+            {isLoggingIn ? 'Logging in...' : 'Quick Login'}
           </button>
         )}
         <div className="text-[10px] font-bold uppercase tracking-widest text-black/60 flex flex-wrap gap-x-4 gap-y-2">

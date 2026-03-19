@@ -14,6 +14,11 @@ export interface Playlist {
   tracks: Track[];
 }
 
+export interface QuickUser {
+  id: string;
+  name: string;
+}
+
 export interface PlayerState {
   currentTrack: Track | null;
   isPlaying: boolean;
