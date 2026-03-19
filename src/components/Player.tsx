@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Repeat, Shuffle, Volume2, Maximize2, Mic2 } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Repeat, Shuffle, Volume2, Maximize2, Mic2, Music } from 'lucide-react';
 import { Track } from '../types';
 import { cn } from '../lib/utils';
 import { motion } from 'motion/react';
@@ -10,7 +10,8 @@ interface PlayerProps {
   onTogglePlay: () => void;
   onNext: () => void;
   onPrev: () => void;
-  onShowLyrics: () => void;
+  isQueueOpen: boolean;
+  onToggleQueue: () => void;
 }
 
 export const Player: React.FC<PlayerProps> = ({
@@ -19,7 +20,8 @@ export const Player: React.FC<PlayerProps> = ({
   onTogglePlay,
   onNext,
   onPrev,
-  onShowLyrics,
+  isQueueOpen,
+  onToggleQueue,
 }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [progress, setProgress] = useState(0);
@@ -118,13 +120,6 @@ export const Player: React.FC<PlayerProps> = ({
           <button className="text-black hover:text-white transition-colors md:block">
             <Repeat size={18} className="md:w-5 md:h-5" />
           </button>
-          <button 
-            onClick={onShowLyrics}
-            className="text-black hover:text-white transition-colors p-1"
-            title="Lyrics"
-          >
-            <Mic2 size={18} className="md:w-5 md:h-5" />
-          </button>
         </div>
 
         <div className="flex items-center gap-2 md:gap-4 w-full">
@@ -176,6 +171,16 @@ export const Player: React.FC<PlayerProps> = ({
           </div>
         </div>
         <Maximize2 size={20} className="text-black cursor-pointer hover:text-white transition-colors" />
+        <button 
+          onClick={onToggleQueue}
+          className={cn(
+            "neo-btn p-2 transition-colors",
+            isQueueOpen ? "bg-neo-green" : "bg-white hover:bg-neo-yellow"
+          )}
+          title="Queue"
+        >
+          <Music size={20} />
+        </button>
       </div>
     </div>
   );

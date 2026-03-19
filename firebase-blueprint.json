@@ -1,0 +1,51 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and data",
+      "type": "object",
+      "properties": {
+        "playlists": {
+          "type": "array",
+          "description": "User's saved playlists",
+          "items": {
+            "$ref": "Playlist"
+          }
+        }
+      }
+    },
+    "Playlist": {
+      "title": "Playlist",
+      "description": "A collection of tracks",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "tracks": {
+          "type": "array",
+          "items": { "$ref": "Track" }
+        }
+      }
+    },
+    "Track": {
+      "title": "Track",
+      "description": "A music track",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number" },
+        "title": { "type": "string" },
+        "artist": { "type": "string" },
+        "album": { "type": "string" },
+        "cover": { "type": "string" },
+        "previewUrl": { "type": "string" },
+        "duration": { "type": "number" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User specific data including playlists"
+    }
+  }
+}

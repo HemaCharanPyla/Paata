@@ -3,11 +3,14 @@ import { Sidebar } from './components/Sidebar';
 import { Player } from './components/Player';
 import { TrackCard } from './components/TrackCard';
 import { SearchInput } from './components/SearchInput';
+import { SplashScreen } from './components/SplashScreen';
 import { Track, Playlist } from './types';
 import { cn } from './lib/utils';
 import { searchTracks, getTrendingTracks } from './services/musicService';
-import { fetchLyrics } from './services/lyricsService';
-import { LyricsModal } from './components/LyricsModal';
+import { auth, db, googleProvider } from './firebase';
+import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { doc, setDoc, onSnapshot, collection } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from './lib/firestoreUtils';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -19,7 +22,8 @@ import {
   Search, 
   Library, 
   PlusSquare,
-  X
+  X,
+  Music
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -31,6 +35,7 @@ export default function App() {
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
   
   const [playlists, setPlaylists] = useState<Playlist[]>(() => {
     const saved = localStorage.getItem('aura_playlists');
@@ -38,14 +43,75 @@ export default function App() {
   });
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [isLyricsOpen, setIsLyricsOpen] = useState(false);
-  const [isLyricsLoading, setIsLyricsLoading] = useState(false);
-  const [currentLyrics, setCurrentLyrics] = useState('');
+  const [isQueueOpen, setIsQueueOpen] = useState(false);
+  
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [history, setHistory] = useState<Track[]>([]);
+  const [lastSearch, setLastSearch] = useState<string>(() => localStorage.getItem('aura_last_search') || '');
+  const [searchBasedTracks, setSearchBasedTracks] = useState<Track[]>([]);
 
-  // Save playlists to localStorage
   useEffect(() => {
-    localStorage.setItem('aura_playlists', JSON.stringify(playlists));
-  }, [playlists]);
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Auth listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      if (!u) {
+        // Clear playlists if logged out (or keep local if you prefer)
+        // For now, we'll let Firestore override if logged in
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Firestore sync for playlists
+  useEffect(() => {
+    if (!user) return;
+    const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.playlists) {
+          setPlaylists(data.playlists);
+        }
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  // Save playlists to Firestore or localStorage
+  useEffect(() => {
+    const savePlaylists = async () => {
+      if (user) {
+        try {
+          await setDoc(doc(db, 'users', user.uid), { playlists }, { merge: true });
+        } catch (error) {
+          handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}`);
+        }
+      } else {
+        localStorage.setItem('aura_playlists', JSON.stringify(playlists));
+      }
+    };
+    savePlaylists();
+  }, [playlists, user]);
+
+  // Recommendations fetch removed
+  useEffect(() => {
+    if (currentTrack) {
+      // Add to history
+      setHistory(prev => {
+        const filtered = prev.filter(t => t.id !== currentTrack.id);
+        return [currentTrack, ...filtered].slice(0, 10);
+      });
+    }
+  }, [currentTrack]);
 
   // Load trending tracks on mount
   useEffect(() => {
@@ -67,6 +133,12 @@ export default function App() {
         const results = await searchTracks(searchQuery);
         setTracks(results);
         setIsLoading(false);
+        
+        // Update last search for the feed
+        if (results.length > 0) {
+          setLastSearch(searchQuery);
+          localStorage.setItem('aura_last_search', searchQuery);
+        }
       } else if (selectedCategory) {
         setIsLoading(true);
         const results = await searchTracks(selectedCategory);
@@ -82,6 +154,24 @@ export default function App() {
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery, activeTab, trendingTracks, selectedCategory]);
 
+  // Fetch search-based feed
+  useEffect(() => {
+    if (lastSearch) {
+      const fetchSearchBased = async () => {
+        const results = await searchTracks(lastSearch);
+        setSearchBasedTracks(results.slice(0, 12));
+      };
+      fetchSearchBased();
+    }
+  }, [lastSearch]);
+
+  const refreshTrending = async () => {
+    setIsLoading(true);
+    const data = await getTrendingTracks();
+    setTrendingTracks(data);
+    setIsLoading(false);
+  };
+
   const handlePlay = (track: Track, trackList?: Track[]) => {
     if (trackList) {
       setTracks(trackList);
@@ -92,6 +182,13 @@ export default function App() {
       setCurrentTrack(track);
       setIsPlaying(true);
     }
+  };
+
+  const handlePlayPlaylist = (playlist: Playlist) => {
+    if (playlist.tracks.length === 0) return;
+    setTracks(playlist.tracks);
+    setCurrentTrack(playlist.tracks[0]);
+    setIsPlaying(true);
   };
 
   const handleNext = useCallback(() => {
@@ -110,13 +207,32 @@ export default function App() {
     setCurrentTrack(tracks[prevIndex]);
   }, [currentTrack, tracks]);
 
-  const handleShowLyrics = async () => {
-    if (!currentTrack) return;
-    setIsLyricsOpen(true);
-    setIsLyricsLoading(true);
-    const lyrics = await fetchLyrics(currentTrack.title, currentTrack.artist);
-    setCurrentLyrics(lyrics);
-    setIsLyricsLoading(false);
+  const handleLogin = async () => {
+    if (isLoggingIn) return;
+    setIsLoggingIn(true);
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error: any) {
+      if (error.code === 'auth/cancelled-popup-request') {
+        console.log("Login popup request was cancelled by a subsequent request.");
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        console.log("Login popup was closed by the user.");
+      } else {
+        console.error("Login failed:", error);
+      }
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setPlaylists([]);
+      setSelectedPlaylistId(null);
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
   };
 
   const createPlaylist = () => {
@@ -161,10 +277,31 @@ export default function App() {
     }));
   };
 
+  const removeFromQueue = (trackId: number) => {
+    setTracks(prev => prev.filter(t => t.id !== trackId));
+  };
+
+  const moveInQueue = (index: number, direction: 'up' | 'down') => {
+    setTracks(prev => {
+      const newQueue = [...prev];
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= newQueue.length) return prev;
+      
+      const temp = newQueue[index];
+      newQueue[index] = newQueue[targetIndex];
+      newQueue[targetIndex] = temp;
+      return newQueue;
+    });
+  };
+
   const currentPlaylist = playlists.find(p => p.id === selectedPlaylistId);
 
   return (
     <div className="flex flex-col h-screen bg-neo-yellow text-black font-sans overflow-hidden">
+      <AnimatePresence>
+        {showSplash && <SplashScreen />}
+      </AnimatePresence>
+      
       <div className="flex flex-1 overflow-hidden relative">
         {/* Sidebar - Hidden on mobile */}
         <div className="hidden md:block">
@@ -175,6 +312,12 @@ export default function App() {
             selectedPlaylistId={selectedPlaylistId}
             setSelectedPlaylistId={setSelectedPlaylistId}
             onCreatePlaylist={createPlaylist}
+            onRenamePlaylist={renamePlaylist}
+            onPlayPlaylist={handlePlayPlaylist}
+            user={user}
+            isLoggingIn={isLoggingIn}
+            onLogin={handleLogin}
+            onLogout={handleLogout}
           />
         </div>
 
@@ -182,7 +325,11 @@ export default function App() {
         <main className="flex-1 flex flex-col bg-white overflow-y-auto scrollbar-hide border-l-0 md:border-l-4 border-black pb-48 md:pb-24">
           {/* Header */}
           <header className="sticky top-0 z-30 flex items-center justify-between p-4 bg-white border-b-4 border-black">
-            <div className="flex items-center gap-2 md:gap-4 flex-1">
+            <div className="flex items-center gap-2 md:gap-4 flex-1 font-mono font-bold">
+              <div className="flex flex-col leading-none mr-2 md:mr-4">
+                <span className="text-xl md:text-2xl tracking-tighter">AURA CLIP</span>
+                <span className="text-[8px] md:text-[10px] uppercase opacity-70">Neo-Brutalist Music Feed</span>
+              </div>
               <div className="flex items-center gap-1 md:gap-2">
                 <button 
                   onClick={() => {
@@ -227,6 +374,9 @@ export default function App() {
                   <h1 className="text-6xl font-display uppercase tracking-tighter bg-neo-green inline-block px-4 py-2 neo-border neo-shadow-lg self-start">
                     VIBE CHECK
                   </h1>
+                  <p className="text-lg font-bold uppercase tracking-tight max-w-xl bg-neo-yellow p-4 neo-border neo-shadow-sm">
+                    Welcome to AURA CLIP. Your high-energy destination for trending tracks and personalized music feeds. Discover, play, and vibe out.
+                  </p>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {trendingTracks.slice(0, 6).map((track, i) => (
@@ -252,7 +402,15 @@ export default function App() {
                   <div className="mt-12">
                     <div className="flex items-center justify-between mb-8">
                       <h2 className="text-4xl font-display uppercase tracking-tighter bg-neo-pink px-4 py-1 neo-border neo-shadow">FOR YOU</h2>
-                      <span className="text-lg font-bold uppercase underline decoration-4 underline-offset-4 cursor-pointer hover:text-neo-pink">Show all</span>
+                      <div className="flex items-center gap-4">
+                        <button 
+                          onClick={refreshTrending}
+                          className="text-lg font-bold uppercase underline decoration-4 underline-offset-4 cursor-pointer hover:text-neo-pink"
+                        >
+                          Refresh
+                        </button>
+                        <span className="text-lg font-bold uppercase underline decoration-4 underline-offset-4 cursor-pointer hover:text-neo-pink">Show all</span>
+                      </div>
                     </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-8">
                     {trendingTracks.map((track) => (
@@ -267,6 +425,28 @@ export default function App() {
                     ))}
                   </div>
                   </div>
+
+                  {searchBasedTracks.length > 0 && (
+                    <div className="mt-12">
+                      <div className="flex items-center justify-between mb-8">
+                        <h2 className="text-4xl font-display uppercase tracking-tighter bg-neo-yellow px-4 py-1 neo-border neo-shadow">
+                          BASED ON "{lastSearch.toUpperCase()}"
+                        </h2>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-8">
+                        {searchBasedTracks.map((track) => (
+                          <TrackCard
+                            key={track.id}
+                            track={track}
+                            isActive={currentTrack?.id === track.id}
+                            onPlay={(t) => handlePlay(t, searchBasedTracks)}
+                            playlists={playlists}
+                            onAddToPlaylist={addTrackToPlaylist}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </motion.section>
               )}
 
@@ -352,6 +532,14 @@ export default function App() {
                       />
                       <div className="flex items-center gap-4 mt-4">
                         <button 
+                          onClick={() => handlePlayPlaylist(currentPlaylist)}
+                          className="neo-btn bg-neo-green text-black flex items-center gap-2"
+                          disabled={currentPlaylist.tracks.length === 0}
+                        >
+                          <div className="w-0 h-0 border-t-[6px] border-t-transparent border-l-[10px] border-l-black border-b-[6px] border-b-transparent ml-1" />
+                          PLAY ALL
+                        </button>
+                        <button 
                           onClick={() => deletePlaylist(currentPlaylist.id)}
                           className="neo-btn bg-neo-pink text-black flex items-center gap-2"
                         >
@@ -428,6 +616,89 @@ export default function App() {
                   </button>
                 </motion.section>
               )}
+
+              {activeTab === 'queue' && (
+                <motion.section
+                  key="queue"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="flex flex-col gap-8"
+                >
+                  <h1 className="text-6xl font-display uppercase tracking-tighter bg-neo-blue text-white inline-block px-4 py-2 neo-border neo-shadow-lg self-start">
+                    PLAYBACK QUEUE
+                  </h1>
+                  
+                  <div className="flex flex-col gap-4">
+                    {tracks.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-2">
+                        {tracks.map((track, i) => (
+                          <div 
+                            key={`${track.id}-${i}`}
+                            className={cn(
+                              "flex items-center gap-4 p-4 neo-border transition-colors group",
+                              currentTrack?.id === track.id ? "bg-neo-green/20 border-neo-green" : "hover:bg-neo-yellow/10"
+                            )}
+                          >
+                            <span className="w-8 text-center font-bold text-xl">{i + 1}</span>
+                            <img src={track.cover} className="w-16 h-16 neo-border" alt="" />
+                            <div className="flex-1 overflow-hidden">
+                              <div className={cn("font-display text-xl uppercase truncate", currentTrack?.id === track.id && "text-neo-green")}>
+                                {track.title}
+                                {currentTrack?.id === track.id && " (PLAYING)"}
+                              </div>
+                              <div className="text-sm font-bold uppercase text-black/60 truncate">{track.artist}</div>
+                            </div>
+                            
+                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button 
+                                onClick={() => moveInQueue(i, 'up')}
+                                disabled={i === 0}
+                                className="neo-btn bg-white p-2 disabled:opacity-30"
+                                title="Move Up"
+                              >
+                                <ChevronLeft className="rotate-90" size={18} />
+                              </button>
+                              <button 
+                                onClick={() => moveInQueue(i, 'down')}
+                                disabled={i === tracks.length - 1}
+                                className="neo-btn bg-white p-2 disabled:opacity-30"
+                                title="Move Down"
+                              >
+                                <ChevronLeft className="-rotate-90" size={18} />
+                              </button>
+                              <button 
+                                onClick={() => removeFromQueue(track.id)}
+                                className="neo-btn bg-neo-pink p-2"
+                                title="Remove"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
+                            
+                            <button 
+                              onClick={() => handlePlay(track)}
+                              className="neo-btn bg-neo-green p-3"
+                            >
+                              <div className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[14px] border-l-black border-b-[8px] border-b-transparent ml-1" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-20 neo-border neo-shadow bg-neo-yellow">
+                        <p className="text-2xl font-display uppercase">Your queue is empty</p>
+                        <button 
+                          onClick={() => setActiveTab('home')}
+                          className="neo-btn bg-neo-green mt-4"
+                        >
+                          GO FIND SOME VIBES
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </motion.section>
+              )}
             </AnimatePresence>
           </div>
         </main>
@@ -441,19 +712,10 @@ export default function App() {
           onTogglePlay={() => setIsPlaying(!isPlaying)}
           onNext={handleNext}
           onPrev={handlePrev}
-          onShowLyrics={handleShowLyrics}
+          isQueueOpen={activeTab === 'queue'}
+          onToggleQueue={() => setActiveTab(activeTab === 'queue' ? 'home' : 'queue')}
         />
       </div>
-
-      {/* Lyrics Modal */}
-      <LyricsModal
-        isOpen={isLyricsOpen}
-        onClose={() => setIsLyricsOpen(false)}
-        title={currentTrack?.title || ''}
-        artist={currentTrack?.artist || ''}
-        lyrics={currentLyrics}
-        isLoading={isLyricsLoading}
-      />
 
       {/* Mobile Bottom Nav */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-neo-yellow border-t-4 border-black flex items-center justify-around z-50">
@@ -477,6 +739,13 @@ export default function App() {
         >
           <Library size={20} />
           <span className="text-[10px] font-bold">LIBRARY</span>
+        </button>
+        <button 
+          onClick={() => { setActiveTab('queue'); setSelectedPlaylistId(null); }}
+          className={cn("flex flex-col items-center gap-1", activeTab === 'queue' ? "text-neo-pink" : "text-black")}
+        >
+          <Music size={20} />
+          <span className="text-[10px] font-bold">QUEUE</span>
         </button>
         <button 
           onClick={createPlaylist}

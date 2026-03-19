@@ -1,7 +1,9 @@
-import React from 'react';
-import { Home, Search, Library, PlusSquare, Heart, Music } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Home, Search, Library, PlusSquare, Heart, Music, LogIn, LogOut, Play } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Playlist } from '../types';
+import { User as FirebaseUser } from 'firebase/auth';
+import { motion } from 'motion/react';
 
 interface SidebarProps {
   activeTab: string;
@@ -10,6 +12,12 @@ interface SidebarProps {
   selectedPlaylistId: string | null;
   setSelectedPlaylistId: (id: string | null) => void;
   onCreatePlaylist: () => void;
+  onRenamePlaylist: (id: string, newName: string) => void;
+  onPlayPlaylist: (playlist: Playlist) => void;
+  user: FirebaseUser | null;
+  isLoggingIn: boolean;
+  onLogin: () => void;
+  onLogout: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
@@ -18,12 +26,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
   playlists,
   selectedPlaylistId,
   setSelectedPlaylistId,
-  onCreatePlaylist
+  onCreatePlaylist,
+  onRenamePlaylist,
+  onPlayPlaylist,
+  user,
+  isLoggingIn,
+  onLogin,
+  onLogout
 }) => {
+  const [editingPlaylistId, setEditingPlaylistId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const editInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingPlaylistId && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [editingPlaylistId]);
+
+  const handleRenameSubmit = (id: string) => {
+    if (editName.trim()) {
+      onRenamePlaylist(id, editName.trim());
+    }
+    setEditingPlaylistId(null);
+  };
+
   const navItems = [
     { id: 'home', icon: Home, label: 'HOME' },
     { id: 'search', icon: Search, label: 'SEARCH' },
     { id: 'library', icon: Library, label: 'LIBRARY' },
+    { id: 'queue', icon: Music, label: 'QUEUE' },
   ];
 
   return (
@@ -57,15 +90,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </nav>
 
       <div className="flex flex-col gap-4 mt-4">
-        <button 
+        <motion.button 
+          whileHover={{ scale: 1.05, y: -2 }}
+          transition={{ type: "spring", stiffness: 400, damping: 10 }}
           onClick={onCreatePlaylist}
-          className="flex items-center gap-4 text-sm font-bold uppercase tracking-wider text-black hover:text-neo-pink transition-colors"
+          className="flex items-center gap-4 text-sm font-bold uppercase tracking-wider text-black hover:text-neo-pink transition-colors group"
         >
-          <div className="bg-neo-blue neo-border p-1 text-white">
+          <div className="bg-neo-blue neo-border p-1 text-white group-hover:bg-neo-pink transition-colors">
             <PlusSquare size={16} />
           </div>
           Create Playlist
-        </button>
+        </motion.button>
         <button className="flex items-center gap-4 text-sm font-bold uppercase tracking-wider text-black hover:text-neo-pink transition-colors">
           <div className="bg-neo-pink neo-border p-1 text-white">
             <Heart size={16} fill="white" />
@@ -78,25 +113,92 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <span className="text-xs font-bold uppercase tracking-widest text-black/40 px-2">Playlists</span>
         <div className="flex flex-col gap-1">
           {playlists.map((playlist) => (
-            <button
-              key={playlist.id}
-              onClick={() => {
-                setSelectedPlaylistId(playlist.id);
-                setActiveTab('playlist');
-              }}
-              className={cn(
-                "flex items-center gap-3 px-2 py-2 text-sm font-bold uppercase tracking-tight truncate transition-all hover:bg-black/5",
-                selectedPlaylistId === playlist.id ? "bg-neo-pink neo-border neo-shadow-sm" : "text-black/70"
+            <div key={playlist.id} className="relative group">
+              {editingPlaylistId === playlist.id ? (
+                <input
+                  ref={editInputRef}
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onBlur={() => handleRenameSubmit(playlist.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleRenameSubmit(playlist.id);
+                    if (e.key === 'Escape') setEditingPlaylistId(null);
+                  }}
+                  className="w-full px-2 py-2 text-sm font-bold uppercase tracking-tight neo-border bg-white outline-none"
+                />
+              ) : (
+                <button
+                  onClick={() => {
+                    setSelectedPlaylistId(playlist.id);
+                    setActiveTab('playlist');
+                  }}
+                  onDoubleClick={() => {
+                    setEditingPlaylistId(playlist.id);
+                    setEditName(playlist.name);
+                  }}
+                  className={cn(
+                    "w-full flex items-center justify-between px-2 py-2 text-sm font-bold uppercase tracking-tight truncate transition-all",
+                    selectedPlaylistId === playlist.id 
+                      ? "bg-neo-pink neo-border neo-shadow-sm" 
+                      : "text-black/70 hover:bg-black/10 hover:text-black"
+                  )}
+                >
+                  <div className="flex items-center gap-3 truncate">
+                    <Music size={16} />
+                    <span className="truncate">{playlist.name}</span>
+                  </div>
+                  <div 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onPlayPlaylist(playlist);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-neo-green neo-border bg-white"
+                  >
+                    <Play size={12} fill="black" />
+                  </div>
+                </button>
               )}
-            >
-              <Music size={16} />
-              <span className="truncate">{playlist.name}</span>
-            </button>
+            </div>
           ))}
         </div>
       </div>
 
-      <div className="mt-auto pt-4 border-t-4 border-black">
+      <div className="mt-auto pt-4 border-t-4 border-black flex flex-col gap-4">
+        {user ? (
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3 px-2">
+              <img 
+                src={user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} 
+                className="w-10 h-10 neo-border" 
+                alt={user.displayName || 'User'} 
+              />
+              <div className="flex flex-col overflow-hidden">
+                <span className="text-xs font-bold uppercase truncate">{user.displayName || 'User'}</span>
+                <span className="text-[10px] text-black/60 truncate">{user.email}</span>
+              </div>
+            </div>
+            <button 
+              onClick={onLogout}
+              className="flex items-center gap-3 px-3 py-2 text-xs font-bold uppercase tracking-widest bg-neo-pink neo-border neo-shadow-sm hover:-translate-y-0.5 transition-transform"
+            >
+              <LogOut size={16} />
+              Logout
+            </button>
+          </div>
+        ) : (
+          <button 
+            onClick={onLogin}
+            disabled={isLoggingIn}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2 text-xs font-bold uppercase tracking-widest bg-neo-green neo-border neo-shadow-sm transition-all",
+              isLoggingIn ? "opacity-50 cursor-not-allowed" : "hover:-translate-y-0.5"
+            )}
+          >
+            <LogIn size={16} className={cn(isLoggingIn && "animate-pulse")} />
+            {isLoggingIn ? 'Logging in...' : 'Login with Google'}
+          </button>
+        )}
         <div className="text-[10px] font-bold uppercase tracking-widest text-black/60 flex flex-wrap gap-x-4 gap-y-2">
           <span className="hover:text-black cursor-pointer">Legal</span>
           <span className="hover:text-black cursor-pointer">Privacy</span>
