@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
-import { Play, Plus, Check } from 'lucide-react';
+import { Play, Plus, Check, Heart, Download } from 'lucide-react';
 import { Track, Playlist } from '../types';
 import { cn } from '../lib/utils';
 
 interface TrackCardProps {
   track: Track;
   isActive: boolean;
+  isLiked?: boolean;
+  isDownloaded?: boolean;
+  isDownloading?: boolean;
   onPlay: (track: Track) => void;
+  onLike?: (track: Track) => void;
+  onDownload?: (track: Track) => void;
   playlists?: Playlist[];
   onAddToPlaylist?: (playlistId: string, track: Track) => void;
 }
@@ -14,7 +19,12 @@ interface TrackCardProps {
 export const TrackCard: React.FC<TrackCardProps> = ({ 
   track, 
   isActive, 
+  isLiked = false,
+  isDownloaded = false,
+  isDownloading = false,
   onPlay,
+  onLike,
+  onDownload,
   playlists = [],
   onAddToPlaylist
 }) => {
@@ -47,7 +57,38 @@ export const TrackCard: React.FC<TrackCardProps> = ({
         </button>
       </div>
       <div className="flex flex-col gap-1 flex-1 min-w-0">
-        <h3 className="text-black font-display uppercase text-sm truncate tracking-tighter">{track.title}</h3>
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="text-black font-display uppercase text-sm truncate tracking-tighter flex-1">{track.title}</h3>
+          <div className="flex items-center gap-1">
+            {onDownload && (
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDownload(track);
+                }}
+                className={cn(
+                  "p-1 neo-border neo-shadow-sm transition-all duration-200",
+                  isDownloaded ? "bg-neo-green text-black" : "bg-white text-black/40 hover:text-neo-green",
+                  isDownloading && "animate-pulse"
+                )}
+              >
+                <Download size={14} className={cn(isDownloading && "animate-bounce")} />
+              </button>
+            )}
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                onLike?.(track);
+              }}
+              className={cn(
+                "p-1 neo-border neo-shadow-sm transition-all duration-200",
+                isLiked ? "bg-neo-pink text-white" : "bg-white text-black/40 hover:text-neo-pink"
+              )}
+            >
+              <Heart size={14} fill={isLiked ? "currentColor" : "none"} />
+            </button>
+          </div>
+        </div>
         <p className="text-black/60 font-bold text-xs truncate uppercase tracking-wider">{track.artist}</p>
       </div>
 

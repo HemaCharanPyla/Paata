@@ -10,6 +10,7 @@ import { searchTracks, getTrendingTracks } from './services/musicService';
 import { db } from './firebase';
 import { doc, setDoc, onSnapshot, collection, getDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from './lib/firestoreUtils';
+import { get, set, del, keys } from 'idb-keyval';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -22,7 +23,12 @@ import {
   Library, 
   PlusSquare,
   X,
-  Music
+  Music,
+  Heart,
+  Play,
+  Download,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -51,9 +57,61 @@ export default function App() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginUsername, setLoginUsername] = useState('');
-  const [history, setHistory] = useState<Track[]>([]);
+  const [history, setHistory] = useState<Track[]>(() => {
+    const saved = localStorage.getItem('aura_history');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [likedTracks, setLikedTracks] = useState<Track[]>(() => {
+    const saved = localStorage.getItem('aura_liked_tracks');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [recommendations, setRecommendations] = useState<Track[]>([]);
   const [lastSearch, setLastSearch] = useState<string>(() => localStorage.getItem('aura_last_search') || '');
   const [searchBasedTracks, setSearchBasedTracks] = useState<Track[]>([]);
+  const [downloadedTracks, setDownloadedTracks] = useState<Track[]>([]);
+  const [downloadingIds, setDownloadingIds] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    const loadDownloads = async () => {
+      const allKeys = await keys();
+      const tracks: Track[] = [];
+      for (const key of allKeys) {
+        if (typeof key === 'string' && key.startsWith('track_')) {
+          const track = await get(key);
+          if (track) tracks.push(track);
+        }
+      }
+      setDownloadedTracks(tracks);
+    };
+    loadDownloads();
+  }, []);
+
+  const handleDownload = async (track: Track) => {
+    if (downloadedTracks.some(t => t.id === track.id)) {
+      // Already downloaded, remove it
+      await del(`track_${track.id}`);
+      await del(`audio_${track.id}`);
+      setDownloadedTracks(prev => prev.filter(t => t.id !== track.id));
+      return;
+    }
+
+    setDownloadingIds(prev => new Set(prev).add(track.id));
+    try {
+      const response = await fetch(track.previewUrl);
+      const blob = await response.blob();
+      await set(`audio_${track.id}`, blob);
+      await set(`track_${track.id}`, track);
+      setDownloadedTracks(prev => [...prev, track]);
+    } catch (error) {
+      console.error('Download failed:', error);
+    } finally {
+      setDownloadingIds(prev => {
+        const next = new Set(prev);
+        next.delete(track.id);
+        return next;
+      });
+    }
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -71,7 +129,7 @@ export default function App() {
     }
   }, [user]);
 
-  // Firestore sync for playlists
+  // Firestore sync for playlists and liked tracks
   useEffect(() => {
     if (!user) return;
     const unsubscribe = onSnapshot(doc(db, 'users', user.id), (docSnap) => {
@@ -80,6 +138,12 @@ export default function App() {
         if (data.playlists) {
           setPlaylists(data.playlists);
         }
+        if (data.likedTracks) {
+          setLikedTracks(data.likedTracks);
+        }
+        if (data.history) {
+          setHistory(data.history);
+        }
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, `users/${user.id}`);
@@ -87,21 +151,27 @@ export default function App() {
     return () => unsubscribe();
   }, [user]);
 
-  // Save playlists to Firestore or localStorage
+  // Save playlists, liked tracks, and history to Firestore or localStorage
   useEffect(() => {
-    const savePlaylists = async () => {
+    const saveData = async () => {
       if (user) {
         try {
-          await setDoc(doc(db, 'users', user.id), { playlists }, { merge: true });
+          await setDoc(doc(db, 'users', user.id), { 
+            playlists,
+            likedTracks,
+            history
+          }, { merge: true });
         } catch (error) {
           handleFirestoreError(error, OperationType.WRITE, `users/${user.id}`);
         }
       } else {
         localStorage.setItem('aura_playlists', JSON.stringify(playlists));
+        localStorage.setItem('aura_liked_tracks', JSON.stringify(likedTracks));
+        localStorage.setItem('aura_history', JSON.stringify(history));
       }
     };
-    savePlaylists();
-  }, [playlists, user]);
+    saveData();
+  }, [playlists, likedTracks, history, user]);
 
   // Recommendations fetch removed
   useEffect(() => {
@@ -166,6 +236,39 @@ export default function App() {
     }
   }, [lastSearch]);
 
+  // Fetch recommendations based on history and liked tracks
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      if (history.length === 0 && likedTracks.length === 0) {
+        setRecommendations([]);
+        return;
+      }
+
+      // Combine history and liked tracks to find artists
+      const sourceTracks = [...likedTracks.slice(0, 5), ...history.slice(0, 5)];
+      const artists = Array.from(new Set(sourceTracks.map(t => t.artist))).slice(0, 3);
+      
+      if (artists.length === 0) return;
+
+      const allRecs: Track[] = [];
+      for (const artist of artists) {
+        const results = await searchTracks(artist);
+        // Filter out tracks already in history or liked
+        const filtered = results.filter(t => 
+          !history.some(h => h.id === t.id) && 
+          !likedTracks.some(l => l.id === t.id)
+        );
+        allRecs.push(...filtered.slice(0, 4));
+      }
+
+      // Shuffle and take top 12
+      setRecommendations(allRecs.sort(() => Math.random() - 0.5).slice(0, 12));
+    };
+
+    const timer = setTimeout(fetchRecommendations, 1000);
+    return () => clearTimeout(timer);
+  }, [history.length, likedTracks.length]);
+
   const refreshTrending = async () => {
     setIsLoading(true);
     const data = await getTrendingTracks();
@@ -182,7 +285,26 @@ export default function App() {
     } else {
       setCurrentTrack(track);
       setIsPlaying(true);
+      addToHistory(track);
     }
+  };
+
+  const addToHistory = (track: Track) => {
+    setHistory(prev => {
+      const filtered = prev.filter(t => t.id !== track.id);
+      return [track, ...filtered].slice(0, 20); // Keep last 20
+    });
+  };
+
+  const toggleLike = (track: Track) => {
+    setLikedTracks(prev => {
+      const isLiked = prev.some(t => t.id === track.id);
+      if (isLiked) {
+        return prev.filter(t => t.id !== track.id);
+      } else {
+        return [track, ...prev];
+      }
+    });
   };
 
   const handlePlayPlaylist = (playlist: Playlist) => {
@@ -427,13 +549,45 @@ export default function App() {
                         key={track.id}
                         track={track}
                         isActive={currentTrack?.id === track.id}
+                        isLiked={likedTracks.some(t => t.id === track.id)}
                         onPlay={(t) => handlePlay(t, trendingTracks)}
+                        onLike={toggleLike}
                         playlists={playlists}
                         onAddToPlaylist={addTrackToPlaylist}
+                        onDownload={handleDownload}
+                        isDownloaded={downloadedTracks.some(t => t.id === track.id)}
+                        isDownloading={downloadingIds.has(track.id)}
                       />
                     ))}
                   </div>
                   </div>
+
+                  {recommendations.length > 0 && (
+                    <div className="mt-12">
+                      <div className="flex items-center justify-between mb-8">
+                        <h2 className="text-4xl font-display uppercase tracking-tighter bg-neo-blue text-white px-4 py-1 neo-border neo-shadow">
+                          RECOMMENDATIONS
+                        </h2>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-8">
+                        {recommendations.map((track) => (
+                          <TrackCard
+                            key={track.id}
+                            track={track}
+                            isActive={currentTrack?.id === track.id}
+                            isLiked={likedTracks.some(t => t.id === track.id)}
+                            onPlay={(t) => handlePlay(t, recommendations)}
+                            onLike={toggleLike}
+                            playlists={playlists}
+                            onAddToPlaylist={addTrackToPlaylist}
+                            onDownload={handleDownload}
+                            isDownloaded={downloadedTracks.some(t => t.id === track.id)}
+                            isDownloading={downloadingIds.has(track.id)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {searchBasedTracks.length > 0 && (
                     <div className="mt-12">
@@ -448,9 +602,14 @@ export default function App() {
                             key={track.id}
                             track={track}
                             isActive={currentTrack?.id === track.id}
+                            isLiked={likedTracks.some(t => t.id === track.id)}
                             onPlay={(t) => handlePlay(t, searchBasedTracks)}
+                            onLike={toggleLike}
                             playlists={playlists}
                             onAddToPlaylist={addTrackToPlaylist}
+                            onDownload={handleDownload}
+                            isDownloaded={downloadedTracks.some(t => t.id === track.id)}
+                            isDownloading={downloadingIds.has(track.id)}
                           />
                         ))}
                       </div>
@@ -503,9 +662,14 @@ export default function App() {
                               key={track.id}
                               track={track}
                               isActive={currentTrack?.id === track.id}
+                              isLiked={likedTracks.some(t => t.id === track.id)}
                               onPlay={(t) => handlePlay(t, tracks)}
+                              onLike={toggleLike}
                               playlists={playlists}
                               onAddToPlaylist={addTrackToPlaylist}
+                              onDownload={handleDownload}
+                              isDownloaded={downloadedTracks.some(t => t.id === track.id)}
+                              isDownloading={downloadingIds.has(track.id)}
                             />
                           ))
                         ) : (
@@ -602,27 +766,163 @@ export default function App() {
                 </motion.section>
               )}
 
+              {activeTab === 'liked' && (
+                <motion.section
+                  key="liked"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="flex flex-col gap-8"
+                >
+                  <div className="flex flex-col md:flex-row items-end gap-6 bg-neo-pink p-8 neo-border neo-shadow-lg text-white">
+                    <div className="w-48 h-48 bg-white/20 neo-border neo-shadow flex items-center justify-center">
+                      <Heart size={64} fill="white" />
+                    </div>
+                    <div className="flex flex-col gap-2 flex-1">
+                      <span className="text-sm font-bold uppercase tracking-widest">Playlist</span>
+                      <h2 className="text-6xl font-display uppercase tracking-tighter">Liked Songs</h2>
+                      <div className="flex items-center gap-4 mt-4">
+                        <button 
+                          onClick={() => handlePlayPlaylist({ id: 'liked', name: 'Liked Songs', tracks: likedTracks })}
+                          className="neo-btn bg-neo-green text-black flex items-center gap-2"
+                          disabled={likedTracks.length === 0}
+                        >
+                          <div className="w-0 h-0 border-t-[6px] border-t-transparent border-l-[10px] border-l-black border-b-[6px] border-b-transparent ml-1" />
+                          PLAY ALL
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-8">
+                    {likedTracks.length > 0 ? (
+                      likedTracks.map((track) => (
+                        <TrackCard
+                          key={track.id}
+                          track={track}
+                          isActive={currentTrack?.id === track.id}
+                          isLiked={true}
+                          onPlay={(t) => handlePlay(t, likedTracks)}
+                          onLike={toggleLike}
+                          playlists={playlists}
+                          onAddToPlaylist={addTrackToPlaylist}
+                          onDownload={handleDownload}
+                          isDownloaded={downloadedTracks.some(t => t.id === track.id)}
+                          isDownloading={downloadingIds.has(track.id)}
+                        />
+                      ))
+                    ) : (
+                      <div className="col-span-full text-center py-20 text-2xl font-display uppercase neo-border neo-shadow bg-neo-yellow">
+                        No liked songs yet
+                      </div>
+                    )}
+                  </div>
+                </motion.section>
+              )}
+
+
+              {activeTab === 'downloads' && (
+                <motion.section
+                  key="downloads"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="flex flex-col gap-8"
+                >
+                  <div className="flex flex-col md:flex-row items-end gap-6 bg-neo-green p-8 neo-border neo-shadow-lg text-black">
+                    <div className="w-48 h-48 bg-white/20 neo-border neo-shadow flex items-center justify-center">
+                      <Download size={64} />
+                    </div>
+                    <div className="flex flex-col gap-2 flex-1">
+                      <span className="text-sm font-bold uppercase tracking-widest">Offline</span>
+                      <h2 className="text-6xl font-display uppercase tracking-tighter">Downloads</h2>
+                      <p className="text-sm font-bold uppercase tracking-wider opacity-70">
+                        {downloadedTracks.length} tracks available offline
+                      </p>
+                      <div className="flex items-center gap-4 mt-4">
+                        <button 
+                          onClick={() => handlePlayPlaylist({ id: 'downloads', name: 'Downloads', tracks: downloadedTracks })}
+                          className="neo-btn bg-neo-yellow text-black flex items-center gap-2"
+                          disabled={downloadedTracks.length === 0}
+                        >
+                          <div className="w-0 h-0 border-t-[6px] border-t-transparent border-l-[10px] border-l-black border-b-[6px] border-b-transparent ml-1" />
+                          PLAY ALL
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-8">
+                    {downloadedTracks.length > 0 ? (
+                      downloadedTracks.map((track) => (
+                        <TrackCard
+                          key={track.id}
+                          track={track}
+                          isActive={currentTrack?.id === track.id}
+                          isLiked={likedTracks.some(t => t.id === track.id)}
+                          onPlay={(t) => handlePlay(t, downloadedTracks)}
+                          onLike={toggleLike}
+                          playlists={playlists}
+                          onAddToPlaylist={addTrackToPlaylist}
+                          onDownload={handleDownload}
+                          isDownloaded={true}
+                          isDownloading={downloadingIds.has(track.id)}
+                        />
+                      ))
+                    ) : (
+                      <div className="col-span-full text-center py-20 text-2xl font-display uppercase neo-border neo-shadow bg-neo-yellow">
+                        No downloads yet
+                      </div>
+                    )}
+                  </div>
+                </motion.section>
+              )}
+
               {activeTab === 'library' && (
                 <motion.section
                   key="library"
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
-                  className="flex flex-col items-center justify-center h-[60vh] gap-8"
+                  className="flex flex-col gap-8"
                 >
-                  <div className="w-24 h-24 bg-neo-yellow neo-border neo-shadow-lg flex items-center justify-center">
-                    <User size={48} className="text-black" />
+                  <h2 className="text-4xl font-display uppercase tracking-tighter bg-neo-yellow px-4 py-1 neo-border neo-shadow self-start">Your Library</h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div 
+                      onClick={createPlaylist}
+                      className="neo-card bg-neo-green flex flex-col items-center justify-center gap-4 py-12 cursor-pointer hover:-translate-y-1 transition-transform"
+                    >
+                      <PlusSquare size={48} />
+                      <span className="font-display text-2xl uppercase">Create Playlist</span>
+                    </div>
+                    <div 
+                      onClick={() => setActiveTab('liked')}
+                      className="neo-card bg-neo-pink flex flex-col items-center justify-center gap-4 py-12 cursor-pointer hover:-translate-y-1 transition-transform"
+                    >
+                      <Heart size={48} fill="black" />
+                      <span className="font-display text-2xl uppercase">Liked Songs</span>
+                    </div>
+                    <div 
+                      onClick={() => setActiveTab('downloads')}
+                      className="neo-card bg-neo-yellow flex flex-col items-center justify-center gap-4 py-12 cursor-pointer hover:-translate-y-1 transition-transform"
+                    >
+                      <Download size={48} />
+                      <span className="font-display text-2xl uppercase">Downloads</span>
+                    </div>
+                    {playlists.map(p => (
+                      <div 
+                        key={p.id}
+                        onClick={() => {
+                          setSelectedPlaylistId(p.id);
+                          setActiveTab('playlist');
+                        }}
+                        className="neo-card bg-neo-blue text-white flex flex-col items-center justify-center gap-4 py-12 cursor-pointer hover:-translate-y-1 transition-transform"
+                      >
+                        <Music size={48} />
+                        <span className="font-display text-2xl uppercase truncate px-4 w-full text-center">{p.name}</span>
+                      </div>
+                    ))}
                   </div>
-                  <div className="text-center flex flex-col gap-4">
-                    <h2 className="text-4xl font-display uppercase tracking-tighter bg-neo-pink px-4 py-1 neo-border neo-shadow">Your Library is empty</h2>
-                    <p className="text-xl font-bold uppercase">Follow artists and podcasts to see them here.</p>
-                  </div>
-                  <button
-                    onClick={() => setActiveTab('search')}
-                    className="neo-btn bg-neo-green text-black text-xl"
-                  >
-                    Find something to listen to
-                  </button>
                 </motion.section>
               )}
 
@@ -723,6 +1023,15 @@ export default function App() {
           onPrev={handlePrev}
           isQueueOpen={activeTab === 'queue'}
           onToggleQueue={() => setActiveTab(activeTab === 'queue' ? 'home' : 'queue')}
+          likedTracks={likedTracks}
+          onToggleLike={toggleLike}
+          onAddToPlaylist={(track) => {
+            setSelectedPlaylistId(null);
+            setActiveTab('library');
+          }}
+          onDownload={handleDownload}
+          isDownloaded={currentTrack ? downloadedTracks.some(t => t.id === currentTrack.id) : false}
+          isDownloading={currentTrack ? downloadingIds.has(currentTrack.id) : false}
         />
       </div>
 

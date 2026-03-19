@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Home, Search, Library, PlusSquare, Heart, Music, LogIn, LogOut, Play } from 'lucide-react';
+import { Home, Search, Library, PlusSquare, Heart, Music, LogIn, LogOut, Play, Download } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Playlist, QuickUser } from '../types';
 import { motion } from 'motion/react';
@@ -55,6 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'home', icon: Home, label: 'HOME' },
     { id: 'search', icon: Search, label: 'SEARCH' },
     { id: 'library', icon: Library, label: 'LIBRARY' },
+    { id: 'downloads', icon: Download, label: 'DOWNLOADS' },
     { id: 'queue', icon: Music, label: 'QUEUE' },
   ];
 
@@ -100,8 +101,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
           Create Playlist
         </motion.button>
-        <button className="flex items-center gap-4 text-sm font-bold uppercase tracking-wider text-black hover:text-neo-pink transition-colors">
-          <div className="bg-neo-pink neo-border p-1 text-white">
+        <button 
+          onClick={() => {
+            setActiveTab('liked');
+            setSelectedPlaylistId(null);
+          }}
+          className={cn(
+            "flex items-center gap-4 text-sm font-bold uppercase tracking-wider transition-colors group",
+            activeTab === 'liked' ? "text-neo-pink" : "text-black hover:text-neo-pink"
+          )}
+        >
+          <div className={cn(
+            "neo-border p-1 text-white transition-colors",
+            activeTab === 'liked' ? "bg-neo-pink" : "bg-neo-pink/40 group-hover:bg-neo-pink"
+          )}>
             <Heart size={16} fill="white" />
           </div>
           Liked Songs
@@ -199,6 +212,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         )}
         <div className="text-[10px] font-bold uppercase tracking-widest text-black/60 flex flex-wrap gap-x-4 gap-y-2">
+          <a href="mailto:hemacharanpyla@gmail.com" className="hover:text-black cursor-pointer bg-neo-green px-2 py-0.5 neo-border neo-shadow-sm transition-all hover:-translate-y-0.5">Suggestions</a>
           <span className="hover:text-black cursor-pointer">Legal</span>
           <span className="hover:text-black cursor-pointer">Privacy</span>
           <span className="hover:text-black cursor-pointer">Cookies</span>
