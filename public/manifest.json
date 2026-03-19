@@ -1,0 +1,17 @@
+{
+  "name": "Aura Clips",
+  "short_name": "AuraClips",
+  "description": "A high-energy music experience with a Neo Brutalist aesthetic.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFD700",
+  "theme_color": "#FF69B4",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -118,28 +118,37 @@ export const Player: React.FC<PlayerProps> = ({
         />
 
         {/* Track Info */}
-        <div className="flex items-center gap-3 md:gap-5 w-full md:w-[35%]">
-          <img
-            src={currentTrack.cover}
-            alt={currentTrack.title}
-            className="w-14 h-14 md:w-20 md:h-20 neo-border-2 border-black neo-shadow-sm flex-shrink-0 cursor-pointer hover:scale-105 transition-transform"
-            referrerPolicy="no-referrer"
-            onClick={() => setIsFullScreen(true)}
-          />
+        <div 
+          onClick={() => setIsFullScreen(true)}
+          className="flex items-center gap-3 md:gap-5 w-full md:w-[35%] cursor-pointer group"
+        >
+          <div className="relative flex-shrink-0">
+            <img
+              src={currentTrack.cover}
+              alt={currentTrack.title}
+              className="w-14 h-14 md:w-20 md:h-20 neo-border-2 border-black neo-shadow-sm flex-shrink-0 group-hover:scale-105 transition-transform"
+              referrerPolicy="no-referrer"
+            />
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+              <Maximize2 size={24} className="text-white" />
+            </div>
+          </div>
           <div className="flex flex-col overflow-hidden flex-1">
             <span 
-              onClick={() => setIsFullScreen(true)}
-              className="text-black text-base md:text-2xl font-display uppercase truncate tracking-tighter hover:underline cursor-pointer leading-tight"
+              className="text-black text-base md:text-2xl font-display uppercase truncate tracking-tighter group-hover:underline leading-tight"
             >
               {currentTrack.title}
             </span>
-            <span className="text-black/70 text-xs md:text-base font-bold uppercase truncate tracking-wider hover:underline cursor-pointer">
+            <span className="text-black/70 text-xs md:text-base font-bold uppercase truncate tracking-wider group-hover:underline">
               {currentTrack.artist}
             </span>
           </div>
           <div className="flex items-center gap-2 md:hidden">
              <button 
-              onClick={() => onToggleLike(currentTrack)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleLike(currentTrack);
+              }}
               className="text-black p-1"
             >
               <Heart size={20} fill={isLiked ? "black" : "none"} />
@@ -255,6 +264,14 @@ export const Player: React.FC<PlayerProps> = ({
               />
             </div>
           </div>
+          
+          <button 
+            onClick={() => setIsFullScreen(true)}
+            className="neo-btn p-2 bg-white hover:bg-neo-yellow transition-colors"
+            title="Full Screen"
+          >
+            <Maximize2 size={20} />
+          </button>
           
           <button 
             onClick={onToggleQueue}

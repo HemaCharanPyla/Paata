@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Home, Search, Library, PlusSquare, Heart, Music, LogIn, LogOut, Play, Download } from 'lucide-react';
+import { Home, Search, Library, PlusSquare, Heart, Music, LogIn, LogOut, Play, Download, Smartphone } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Playlist, QuickUser } from '../types';
 import { motion } from 'motion/react';
@@ -211,6 +211,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {isLoggingIn ? 'Logging in...' : 'Quick Login'}
           </button>
         )}
+        <button 
+          onClick={() => {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+            if (isIOS) {
+              alert('To install on iOS:\n1. Tap the Share icon (square with arrow)\n2. Scroll down and tap "Add to Home Screen"');
+            } else {
+              alert('To install on Android:\n1. Tap the three dots (menu)\n2. Tap "Install app" or "Add to Home screen"');
+            }
+          }}
+          className="flex items-center gap-3 px-3 py-2 text-xs font-bold uppercase tracking-widest bg-neo-blue text-white neo-border neo-shadow-sm hover:-translate-y-0.5 transition-transform"
+        >
+          <Smartphone size={16} />
+          Install App
+        </button>
         <div className="text-[10px] font-bold uppercase tracking-widest text-black/60 flex flex-wrap gap-x-4 gap-y-2">
           <a href="mailto:hemacharanpyla@gmail.com" className="hover:text-black cursor-pointer bg-neo-green px-2 py-0.5 neo-border neo-shadow-sm transition-all hover:-translate-y-0.5">Suggestions</a>
           <span className="hover:text-black cursor-pointer">Legal</span>
